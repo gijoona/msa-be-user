@@ -1,15 +1,11 @@
-const conf = require('../conf/config').setting;
-// const serverIp = '35.200.103.250';
-const MongoClient = require('mongodb').MongoClient;
-const mongoUri = 'mongodb+srv://gijoona:mongodb77@cluster-quester-euzkr.gcp.mongodb.net/quester';
-// const mysql = require('mysql');
-// const conn = {
-//   host: conf.database.ip,
-//   user: 'root',
-//   // password: 'ngl1213',
-//   database: 'monolithic',
-//   multipleStatements: true  // 상품 등록 후 아이디를 알아오려고 설정
-// }
+const conf = require('../conf/config').setting,
+      mongoose = require('mongoose'),
+      User = require('../models/User');
+
+mongoose.Promise = require('bluebird');
+mongoose.connect('mongodb+srv://gijoona:mongodb77@cluster-quester-euzkr.gcp.mongodb.net/quester', { promiseLibrary: require('bluebird') })
+        .then(() => console.log('connection successful!!!'))
+        .catch((err) => console.error(err));
 
 const redis = require('redis').createClient(conf.redis.port, conf.redis.ip);  // redis 모듈 로드
 redis.on('error', function (err) {  // Redis 에러 처리
@@ -154,41 +150,24 @@ function modify (method, pathname, params, cb) {
     errormessage: 'success'
   };
 
-  if (parameters.length > 0) {
-    for (let param of parameters) {
-      if (param.id == null || param.code == null || param.category == null || param.name == null || param.description == null || param.useyn == null) {
+  redis.get(params.authorization, function (err, data) {
+    let userInfo = JSON.parse(data);
+    User.findByIdAndUpdate(userInfo['_id'], parameters, function (err, user) {
+      if (err) {
         response.errorcode = 1;
-        response.errormessage = 'Invalid Parameters';
-      }
-    }
-    if (response.errorcode == 1) {
-      cb(response);
-    } else {
-      var connection = mysql.createConnection(conn);
-      let querys = '';
-      connection.connect();
-      for (let param of parameters) {
-        querys += `update code set code = '${param.code}', category = '${param.category}', name = '${param.name}', description = '${param.description}', useyn = ${param.useyn} where id = '${param.id}'; `;
-      }
-      connection.query(querys,
-      // connection.query('update code set code = ?, category = ?, name = ?, description = ?, useyn = ? where id = ?',
-      // [parameters.map(param => [param.code, param.category, param.name, param.description, param.useyn, param.id])],
-      (error, results, fields) => {
-        if (error) {
-          response.errorcode = 1;
-          response.errormessage = error;
-        } else {
-          // redis.set(params.id, JSON.stringify(params));
-        }
+        response.errormessage = err;
         cb(response);
-      });
-      connection.end();
-    }
-  } else {
-    response.errorcode = 1;
-    response.errormessage = 'Empty Modify Data';
-    cb(response);
-  }
+      }
+
+      if (user) {
+        cb(response);
+      } else {
+        response.errorcode = 1;
+        response.errormessage = 'Empty User Information';
+        cb(response);
+      }
+    });
+  });
 }
 
 function inquiry (method, pathname, params, cb) {
@@ -199,29 +178,24 @@ function inquiry (method, pathname, params, cb) {
     errormessage: 'success'
   };
 
-  console.log(method, pathname, params);
+  redis.get(params.authorization, function (err, data) {
+    let userInfo = JSON.parse(data);
 
-  MongoClient.connect(mongoUri, function(err, client) {
-    if(err) {
-      console.log('Error occurred while connecting to MongoDB Atlas...\n',err);
-    }
-    let collection = client.db('quester').collection('user');
-
-    collection.find({}).toArray(function(err, results){
-      if(err) {
+    User.findOne({'_id': userInfo['_id']}, function (err, user) {
+      if (err) {
         response.errorcode = 1;
         response.errormessage = err;
+        cb(response);
       }
 
-      if (results.length == 0) {
+      if (user) {
+        response.results = user;
+        cb(response);
+      } else {
         response.errorcode = 1;
         response.errormessage = 'no data';
         cb(response);
-      } else {
-        response.results = results;
-        cb(response);
       }
-      client.close();
     });
   });
 }
