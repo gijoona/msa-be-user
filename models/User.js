@@ -24,19 +24,19 @@ let UserSchema = new Schema({
     type: String,
     default: ''
   },
-  power_exp: {
+  powerExp: {
     type: Number,
     default: 0
   },
-  stamina_exp: {
+  staminaExp: {
     type: Number,
     default: 0
   },
-  knowledge_exp: {
+  knowledgeExp: {
     type: Number,
     default: 0
   },
-  relation_exp: {
+  relationExp: {
     type: Number,
     default: 0
   },
