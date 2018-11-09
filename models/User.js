@@ -1,6 +1,7 @@
 const mongoose = require('mongoose'),
       Schema = mongoose.Schema,
-      bcrypt = require('bcrypt-nodejs');
+      bcrypt = require('bcrypt-nodejs'),
+      Quest = require('./Quest');
 
 let UserSchema = new Schema({
   id: {
@@ -62,6 +63,13 @@ let UserSchema = new Schema({
   },
   job: {
     type: String
+  },
+  quests: [{
+    type: mongoose.Schema.Types.ObjectId, ref: 'Quest'
+  }],
+  inputDt: {
+    type: Date,
+    default: Date.now
   }
 });
 

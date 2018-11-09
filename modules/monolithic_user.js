@@ -1,6 +1,7 @@
 const conf = require('../conf/config').setting,
       mongoose = require('mongoose'),
-      User = require('../models/User');
+      User = require('../models/User'),
+      Quest = require('../models/Quest');
 
 mongoose.Promise = require('bluebird');
 mongoose.connect('mongodb+srv://gijoona:mongodb77@cluster-quester-euzkr.gcp.mongodb.net/quester', { promiseLibrary: require('bluebird') })
@@ -189,8 +190,30 @@ function inquiry (method, pathname, params, cb) {
       }
 
       if (user) {
-        response.results = user;
-        cb(response);
+        let questGroup = {
+          complete: [],
+          process: []
+        }
+
+        // 수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
+        /*
+        TODO :: 사용자 subDoc으로 저장 시 objectId로만 저장하기 때문에 퀘스트 진행에 대한 상태값을 추가할 수 없음
+                수정 방안이 필요함
+        */
+        Quest.find({'_id': { $in: user.quests }}, function (err, quests) {
+          for (let quest of quests) {
+            if(!quest.state || quest.state === 'process') {
+              quest.state = 'process';
+              questGroup.process.push(quest);
+            } else {
+              questGroup.complete.push(quest);
+            }
+          }
+
+          response.quests = questGroup;
+          response.results = user;
+          cb(response);
+        });
       } else {
         response.errorcode = 1;
         response.errormessage = 'no data';
