@@ -30,6 +30,10 @@ let QuestSchema = new Schema({
     type: Number,
     default: 0
   },
+  point: {
+    type: Number,
+    default: 0
+  },
   tags: {
     type: [String]
   },

@@ -1,4 +1,5 @@
-const conf = require('../conf/config').setting,
+const _ = require('underscore'),
+      conf = require('../conf/config').setting,
       mongoose = require('mongoose'),
       User = require('../models/User'),
       Quest = require('../models/Quest');
@@ -195,13 +196,21 @@ function inquiry (method, pathname, params, cb) {
           process: []
         }
 
+        // 수령한 퀘스트에 대한 정보 중 _id정보룰 중복제거 및 추출해서 배열로 처리
+        let questIds = _.chain(user.quests)
+          .uniq()
+          .map(function (quest) { return _.pick(quest, '_id')['_id'] })
+          .value();
+
         // 수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
-        /*
-        TODO :: 사용자 subDoc으로 저장 시 objectId로만 저장하기 때문에 퀘스트 진행에 대한 상태값을 추가할 수 없음
-                수정 방안이 필요함
-        */
-        Quest.find({'_id': { $in: user.quests }}, function (err, quests) {
+        Quest.find({'_id': { $in: questIds }}, function (err, quests) {
           for (let quest of quests) {
+            // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
+            let findQ = _.find(user.quests, function (receiptQuest) {
+                return receiptQuest['_id'].equals(quest['_id']);
+              });
+            quest.state = findQ.state
+
             if(!quest.state || quest.state === 'process') {
               quest.state = 'process';
               questGroup.process.push(quest);
