@@ -254,7 +254,7 @@ function unregister (method, pathname, params, cb) {
         response.errorcode = 1;
         response.errormessage = error;
       } else {
-        redis.del(parameters.id); // Redis에 상품 정보 삭제
+        redis.del(parameters.id);
       }
       cb(response);
     });
