@@ -202,7 +202,7 @@ function inquiry (method, pathname, params, cb) {
           .map(function (quest) { return _.pick(quest, '_id')['_id'] })
           .value();
 
-        // 수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
+        // 수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용 
         Quest.find({'_id': { $in: questIds }}, function (err, quests) {
           for (let quest of quests) {
             // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
