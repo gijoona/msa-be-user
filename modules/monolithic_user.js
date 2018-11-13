@@ -13,6 +13,12 @@ const redis = require('redis').createClient(conf.redis.port, conf.redis.ip);  //
 redis.on('error', function (err) {  // Redis 에러 처리
   console.log('Redis Error ' + err);
 });
+/*
+  TODO :: 필수 수정사항
+  데이터 조회 시 전달할 수 있는 데이터량의 한계가 있음
+  scrollpaging 또는 pagenation등을 적용하여 조회 시 데이터를 제한할 필요가 있음.
+  receiptQuest 정보를 users collection의 subDoc이 아니라 별도의 collection으로 처리하는게 나을 것으로 보임
+*/
 
 /**
   사용자관리 REST API
@@ -224,9 +230,13 @@ function inquiry (method, pathname, params, cb) {
         //          "레벨구간별 습득가능경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2)) - 1)/100)
         let userJSON = user.toJSON();
         userJSON.powerLevel = calcLevel(userJSON.powerExp);
+        userJSON.powerMaxExp = getMaxExp(userJSON.powerExp);
         userJSON.staminaLevel = calcLevel(userJSON.staminaExp);
+        userJSON.staminaMaxExp = getMaxExp(userJSON.staminaExp);
         userJSON.knowledgeLevel = calcLevel(userJSON.knowledgeExp);
+        userJSON.knowledgeMaxExp = getMaxExp(userJSON.knowledgeExp);
         userJSON.relationLevel = calcLevel(userJSON.relationExp);
+        userJSON.relationMaxExp = getMaxExp(userJSON.relationExp);
 
         // 사용자정보 response
         response.results = userJSON;
@@ -270,7 +280,29 @@ function unregister (method, pathname, params, cb) {
   }
 }
 
+/*
+  레벨 산출용 함수
+  "레벨산출공식" 적용 - ROUNDDOWN(LOG(경험치, 2))
+  산출결과가 Infinity경우 0을 반환
+  추후 util로 추출하는 것을 고려
+*/
 function calcLevel (exp) {
   let lv = Math.floor(Math.log2(exp));
   return isFinite(lv) ? lv : 0;
+}
+
+/*
+  레벨구간별 습득가능경험치 산출용 함수
+  "레벨구간별 습득가능경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2)) - 1)/100)
+  산출결과가 Infinity경우 1을 반환
+  추후 util로 추출하는 것을 고려
+*/
+function getMaxExp (exp) {
+  let maxExp = Math.ceil(Math.pow(2, Math.floor(Math.log2(exp)) - 1)/100);
+  if (isFinite(maxExp)) {
+    maxExp = maxExp > 0 ? maxExp : 1;
+  } else {
+    maxExp = 1;
+  }
+  return maxExp;
 }
