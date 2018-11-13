@@ -3,17 +3,59 @@ const mongoose = require('mongoose'),
       bcrypt = require('bcrypt-nodejs'),
       Quest = require('./Quest');
 
+// ReceiptQuestSchema
 let ReceiptQuestSchema = new Schema({
+  _id: false,
   questId: {
     type: mongoose.Schema.Types.ObjectId, ref: 'Quest',
     required: true
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId, ref: 'User',
+    required: true
+  },
+  title: {
+    type: String,
+    required: true
+  },
+  contents: {
+    type: String,
+    required: true
+  },
+  powerExp: {
+    type: Number,
+    default: 0
+  },
+  staminaExp: {
+    type: Number,
+    default: 0
+  },
+  knowledgeExp: {
+    type: Number,
+    default: 0
+  },
+  relationExp: {
+    type: Number,
+    default: 0
+  },
+  point: {
+    type: Number,
+    default: 0
+  },
+  tags: {
+    type: [String]
+  },
   state: {
     type: String,
     default: 'process'
+  },
+  inputDt: {
+    type: Date,
+    defualt: Date.now
   }
 });
 
+// UserSchema
 let UserSchema = new Schema({
   id: {
     type: String,

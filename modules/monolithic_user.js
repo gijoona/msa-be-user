@@ -196,33 +196,41 @@ function inquiry (method, pathname, params, cb) {
           process: []
         }
 
-        // 수령한 퀘스트에 대한 정보 중 _id정보룰 중복제거 및 추출해서 배열로 처리
-        let questIds = _.chain(user.quests)
-          .uniq()
-          .map(function (quest) { return _.pick(quest, '_id')['_id'] })
-          .value();
-
-        // 수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용 
-        Quest.find({'_id': { $in: questIds }}, function (err, quests) {
-          for (let quest of quests) {
-            // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
-            let findQ = _.find(user.quests, function (receiptQuest) {
-                return receiptQuest['_id'].equals(quest['_id']);
-              });
-            quest.state = findQ.state
-
-            if(!quest.state || quest.state === 'process') {
-              quest.state = 'process';
-              questGroup.process.push(quest);
-            } else {
-              questGroup.complete.push(quest);
-            }
+        /*
+          수령 퀘스트데이터 추가
+          수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
+        */
+        for (let quest of user.quests) {
+          // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
+          if(!quest.state || quest.state === 'process') {
+            quest.state = 'process';
+            questGroup.process.push(quest);
+          } else {
+            questGroup.complete.push(quest);
           }
+        }
 
-          response.quests = questGroup;
-          response.results = user;
-          cb(response);
-        });
+        response.quests = questGroup;
+
+        /*
+          레벨데이터 추가
+          "레벨산출공식" 적용 - ROUNDDOWN(LOG(경험치, 2))
+          MongoDB document를 toJSON()으로 가져와서 처리
+           - MongoDB document에서 직접 데이터를 get, set하는 것처럼 보이지만 내부적으로 get/set을 생성하여 처리하는 것이기 때문에
+             JSON으로 받지않고 처리할 경우 별도의 로직이 필요.
+        */
+        // TODO :: "습득가능경험치", "레벨구간별 필요경험치"에 대한 로직 개발필요!!
+        //          "레벨구간별 필요경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2) - 1)))
+        //          "레벨구간별 습득가능경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2)) - 1)/100)
+        let userJSON = user.toJSON();
+        userJSON.powerLevel = Math.floor(Math.log2(userJSON.powerExp));
+        userJSON.staminaLevel = Math.floor(Math.log2(userJSON.staminaExp));
+        userJSON.knowledgeLevel = Math.floor(Math.log2(userJSON.knowledgeExp));
+        userJSON.relationLevel = Math.floor(Math.log2(userJSON.relationExp));
+
+        // 사용자정보 response
+        response.results = userJSON;
+        cb(response);
       } else {
         response.errorcode = 1;
         response.errormessage = 'no data';
