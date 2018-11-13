@@ -223,10 +223,10 @@ function inquiry (method, pathname, params, cb) {
         //          "레벨구간별 필요경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2) - 1)))
         //          "레벨구간별 습득가능경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2)) - 1)/100)
         let userJSON = user.toJSON();
-        userJSON.powerLevel = Math.floor(Math.log2(userJSON.powerExp));
-        userJSON.staminaLevel = Math.floor(Math.log2(userJSON.staminaExp));
-        userJSON.knowledgeLevel = Math.floor(Math.log2(userJSON.knowledgeExp));
-        userJSON.relationLevel = Math.floor(Math.log2(userJSON.relationExp));
+        userJSON.powerLevel = calcLevel(userJSON.powerExp);
+        userJSON.staminaLevel = calcLevel(userJSON.staminaExp);
+        userJSON.knowledgeLevel = calcLevel(userJSON.knowledgeExp);
+        userJSON.relationLevel = calcLevel(userJSON.relationExp);
 
         // 사용자정보 response
         response.results = userJSON;
@@ -268,4 +268,9 @@ function unregister (method, pathname, params, cb) {
     });
     connection.end();
   }
+}
+
+function calcLevel (exp) {
+  let lv = Math.floor(Math.log2(exp));
+  return isFinite(lv) ? lv : 0;
 }
