@@ -1,8 +1,10 @@
 const _ = require('underscore'),
       conf = require('../conf/config').setting,
       mongoose = require('mongoose'),
+      ObjectId = require('mongoose').Types.ObjectId,
       User = require('../models/User'),
-      Quest = require('../models/Quest');
+      Quest = require('../models/Quest'),
+      ReceiptQuest = require('../models/ReceiptQuest');
 
 mongoose.Promise = require('bluebird');
 mongoose.connect('mongodb+srv://gijoona:mongodb77@cluster-quester-euzkr.gcp.mongodb.net/quester', { promiseLibrary: require('bluebird') })
@@ -150,6 +152,7 @@ function register (method, pathname, params, cb) {
   }
 }
 
+// params{userInfo:{}, receiptQuest:{}}
 function modify (method, pathname, params, cb) {
   let parameters = params.data;
   let response = {
@@ -159,21 +162,46 @@ function modify (method, pathname, params, cb) {
   };
 
   redis.get(params.authorization, function (err, data) {
-    let userInfo = JSON.parse(data);
-    User.findByIdAndUpdate(userInfo['_id'], parameters, function (err, user) {
-      if (err) {
-        response.errorcode = 1;
-        response.errormessage = err;
-        cb(response);
-      }
+    let session = JSON.parse(data);
+    User.findById(session['_id'], function (err, userDoc) {
+      let userInfo = parameters.userInfo,
+          questData = parameters.questInfo,
+          query = questData['_id'] ? { '_id': questData['_id'] } : { '_id': mongoose.Types.ObjectId() };
 
-      if (user) {
-        cb(response);
-      } else {
-        response.errorcode = 1;
-        response.errormessage = 'Empty User Information';
-        cb(response);
-      }
+      userInfo.quests = userDoc.quests;
+      /* update or insert 처리
+      option 참고
+      upsert: 객체가 없을 경우 새로운 객체를 생성
+      new: 변경된 객체를 반환
+      setDefaultsOnInsert: 새로운 객체 생성 시 schema model의 기본값을 참조해서 생성
+      */
+      ReceiptQuest.findOneAndUpdate(query, questData, { upsert: true, new: true, setDefaultsOnInsert: true }, function (err, quest) {
+        if (err) {
+          console.error(err);
+        } else {
+          if (!questData['_id']) {
+            userInfo.quests.push(quest);
+          }
+        }
+
+        userDoc.update(userInfo, function (err, result) {
+          if (err) {
+            console.error(err);
+            response.errorcode = 1;
+            response.errormessage = err;
+            cb(response);
+          }
+
+          if (result) {
+            response.results = result;
+            cb(response);
+          } else {
+            response.errorcode = 1;
+            response.errormessage = 'Empty User Information';
+            cb(response);
+          }
+        });
+      });
     });
   });
 }
@@ -189,63 +217,46 @@ function inquiry (method, pathname, params, cb) {
   redis.get(params.authorization, function (err, data) {
     let userInfo = JSON.parse(data);
 
-    User.findOne({'_id': userInfo['_id']}, function (err, user) {
-      if (err) {
-        response.errorcode = 1;
-        response.errormessage = err;
-        cb(response);
+    User.findById(userInfo['_id']).populate('quests').exec((err, user) => {
+      /*
+      수령 퀘스트데이터 추가
+      수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
+      */
+      let questGroup = {
+        complete: [],
+        process: []
       }
-
-      if (user) {
-        let questGroup = {
-          complete: [],
-          process: []
+      for (let quest of user.quests) {
+        // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
+        if(!quest.state || quest.state === 'process') {
+          // quest.state = 'process';
+          questGroup.process.push(quest);
+        } else {
+          questGroup.complete.push(quest);
         }
-
-        /*
-          수령 퀘스트데이터 추가
-          수령한 퀘스트를 분류(complete: 완료, process: 진행 중). findMany 활용
-        */
-        for (let quest of user.quests) {
-          // 사용자 정보의 quests에서 해당 퀘스트정보를 추출
-          if(!quest.state || quest.state === 'process') {
-            quest.state = 'process';
-            questGroup.process.push(quest);
-          } else {
-            questGroup.complete.push(quest);
-          }
-        }
-
-        response.quests = questGroup;
-
-        /*
-          레벨데이터 추가
-          "레벨산출공식" 적용 - ROUNDDOWN(LOG(경험치, 2))
-          MongoDB document를 toJSON()으로 가져와서 처리
-           - MongoDB document에서 직접 데이터를 get, set하는 것처럼 보이지만 내부적으로 get/set을 생성하여 처리하는 것이기 때문에
-             JSON으로 받지않고 처리할 경우 별도의 로직이 필요.
-        */
-        // TODO :: "습득가능경험치", "레벨구간별 필요경험치"에 대한 로직 개발필요!!
-        //          "레벨구간별 필요경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2) - 1)))
-        //          "레벨구간별 습득가능경험치": ROUNDUP(POW(2, ROUNDDOWN(LOG(경험치, 2)) - 1)/100)
-        let userJSON = user.toJSON();
-        userJSON.powerLevel = calcLevel(userJSON.powerExp);
-        userJSON.powerMaxExp = getMaxExp(userJSON.powerExp);
-        userJSON.staminaLevel = calcLevel(userJSON.staminaExp);
-        userJSON.staminaMaxExp = getMaxExp(userJSON.staminaExp);
-        userJSON.knowledgeLevel = calcLevel(userJSON.knowledgeExp);
-        userJSON.knowledgeMaxExp = getMaxExp(userJSON.knowledgeExp);
-        userJSON.relationLevel = calcLevel(userJSON.relationExp);
-        userJSON.relationMaxExp = getMaxExp(userJSON.relationExp);
-
-        // 사용자정보 response
-        response.results = userJSON;
-        cb(response);
-      } else {
-        response.errorcode = 1;
-        response.errormessage = 'no data';
-        cb(response);
       }
+      response.quests = questGroup;
+      user.quests = [];
+
+      /*
+        레벨데이터 추가
+        "레벨산출공식" 적용 - ROUNDDOWN(LOG(경험치, 2))
+        MongoDB document를 toJSON()으로 가져와서 처리
+         - MongoDB document에서 직접 데이터를 get, set하는 것처럼 보이지만 내부적으로 get/set을 생성하여 처리하는 것이기 때문에
+           JSON으로 받지않고 처리할 경우 별도의 로직이 필요.
+      */
+      let userData = user.toJSON();
+      userData.powerLevel = calcLevel(userData.powerExp);
+      userData.powerMaxExp = getMaxExp(userData.powerExp);
+      userData.staminaLevel = calcLevel(userData.staminaExp);
+      userData.staminaMaxExp = getMaxExp(userData.staminaExp);
+      userData.knowledgeLevel = calcLevel(userData.knowledgeExp);
+      userData.knowledgeMaxExp = getMaxExp(userData.knowledgeExp);
+      userData.relationLevel = calcLevel(userData.relationExp);
+      userData.relationMaxExp = getMaxExp(userData.relationExp);
+
+      response.results = userData;
+      cb(response);
     });
   });
 }

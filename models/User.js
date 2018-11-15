@@ -1,59 +1,6 @@
 const mongoose = require('mongoose'),
       Schema = mongoose.Schema,
-      bcrypt = require('bcrypt-nodejs'),
-      Quest = require('./Quest');
-
-// ReceiptQuestSchema
-let ReceiptQuestSchema = new Schema({
-  _id: false,
-  questId: {
-    type: mongoose.Schema.Types.ObjectId, ref: 'Quest',
-    required: true
-  },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId, ref: 'User',
-    required: true
-  },
-  title: {
-    type: String,
-    required: true
-  },
-  contents: {
-    type: String,
-    required: true
-  },
-  powerExp: {
-    type: Number,
-    default: 0
-  },
-  staminaExp: {
-    type: Number,
-    default: 0
-  },
-  knowledgeExp: {
-    type: Number,
-    default: 0
-  },
-  relationExp: {
-    type: Number,
-    default: 0
-  },
-  point: {
-    type: Number,
-    default: 0
-  },
-  tags: {
-    type: [String]
-  },
-  state: {
-    type: String,
-    default: 'process'
-  },
-  inputDt: {
-    type: Date,
-    defualt: Date.now
-  }
-});
+      bcrypt = require('bcrypt-nodejs');
 
 // UserSchema
 let UserSchema = new Schema({
@@ -121,7 +68,9 @@ let UserSchema = new Schema({
   job: {
     type: String
   },
-  quests: [ReceiptQuestSchema],
+  quests: [{
+    type: mongoose.Schema.Types.ObjectId, ref: 'ReceiptQuest'
+  }],
   inputDt: {
     type: Date,
     default: Date.now
