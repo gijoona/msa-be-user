@@ -36,16 +36,17 @@ class tcpClient {
 
     // 데이터수신 처리
     this.client.on('data', (data) => {
-      let sz = this.merge ? this.merge + data.toString() : data.toString();
-      let arr = sz.split('¶');
-      for (let n in arr) {
-        if (sz.charAt(sz.length - 1) != '¶' && n == arr.length - 1) {
-          this.merge = arr[n];
-          break;
-        } else if (arr[n] == "") {
-          break;
-        } else {
-          this.onRead(this.options, JSON.parse(arr[n]));
+      this.merge = this.merge instanceof Array ? this.merge : [];
+      this.merge.push(Buffer.from(data));
+
+      let sz = data.toString();
+      if (sz.charAt(sz.length - 1) == '¶') {
+        let mergeBuf = this.merge,
+            buf = Buffer.concat(mergeBuf),
+            bToS = buf.toString().replace('¶', '');
+        if (bToS != "") {
+          this.merge = [];
+          this.onRead(this.options, JSON.parse(bToS));
         }
       }
     });

@@ -26,28 +26,29 @@ class tcpServer {
 
       // 에러 이벤트 처리
       socket.on('error', (exception) => {
-        this.onClose(socket);
+        this.onClose(exception, socket);
       });
 
       // 클라이언트 접속 정료 이벤트 처리
       socket.on('close', () => {
-        this.onClose(socket);
+        this.onClose(null, socket);
       });
 
       // 데이터 수신 처리
       socket.on('data', (data) => {
-        let key = socket.remoteAddress + ":" + socket.remotePort;
-        let sz = this.merge[key] ? this.merge[key] + data.toString() : data.toString();
-        let arr = sz.split('¶');
-        for (let n in arr) {
-          if (sz.charAt(sz.length - 1) != '¶' && n == arr.length - 1) {
-            this.merge[key] = arr[n];
-            break;
-          } else if (arr[n] == "") {
-            break;
-          } else {
-            this.writeLog(arr[n]);
-            this.onRead(socket, JSON.parse(arr[n]));
+        let key = socket.remoteAddress + ':' + socket.remotePort;
+        this.merge[key] = this.merge[key] instanceof Array ? this.merge[key] : [];
+        this.merge[key].push(Buffer.from(data));
+
+        let sz = data.toString();
+        if (sz.charAt(sz.length - 1) == '¶') {
+          let mergeBuf = this.merge[key],
+              buf = Buffer.concat(mergeBuf),
+              bToS = buf.toString().replace('¶', '');
+          if (bToS != "") {
+            this.merge[key] = [];
+            this.writeLog(bToS);
+            this.onRead(socket, JSON.parse(bToS));
           }
         }
       });
@@ -68,8 +69,8 @@ class tcpServer {
     console.log('onCreate', socket.remoteAddress, socket.remotePort);
   }
 
-  onClose (socket) {
-    console.log('onClose', socket.remoteAddress, socket.remotePort);
+  onClose (err, socket) {
+    console.log('onClose', socket.remoteAddress, socket.remotePort, (err || ''));
   }
 
   // Distributor 접속
