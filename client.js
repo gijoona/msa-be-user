@@ -43,11 +43,14 @@ class tcpClient {
       if (sz.charAt(sz.length - 1) == '¶') {
         let mergeBuf = this.merge,
             buf = Buffer.concat(mergeBuf),
-            bToS = buf.toString().replace('¶', '');
-        if (bToS != "") {
-          this.merge = [];
-          this.onRead(this.options, JSON.parse(bToS));
+            arr = buf.toString().split('¶');
+
+        for (let n in arr) {
+          if (arr[n] != "") {
+            this.onRead(this.options, JSON.parse(arr[n]));
+          }
         }
+        this.merge = [];
       }
     });
 
